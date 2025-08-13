@@ -19,7 +19,6 @@ Usage:
 from __future__ import annotations
 
 import sys
-import argparse
 from typing import Dict, Optional, Tuple, List, Iterable
 from datetime import date, datetime
 import csv
@@ -507,75 +506,7 @@ def fetch_spiko_series(fund_code: str, start_dt: date, display_name: str) -> Opt
         return None
 
 
-def _extract_latest_navs(df: pd.DataFrame) -> list[dict]:
-    """Return list of {name, day_iso, nav} for the last available value of each column."""
-    results: list[dict] = []
-    if df is None or df.empty:
-        return results
-    for col in df.columns:
-        try:
-            series = df[col].dropna()
-            if series.empty:
-                continue
-            last_day = series.index[-1]
-            # Ensure ISO date string
-            try:
-                day_iso = last_day.isoformat()
-            except Exception:
-                day_iso = str(last_day)
-            nav_val = float(series.iloc[-1])
-            results.append({"name": str(col), "day_iso": day_iso, "nav": nav_val})
-        except Exception:
-            continue
-    # Sort alphabetically by fund name for stable message
-    results.sort(key=lambda r: r["name"].upper())
-    return results
-
-
-def _format_slack_text(eur_df: pd.DataFrame, usd_df: pd.DataFrame) -> str:
-    eur_latest = _extract_latest_navs(eur_df)
-    usd_latest = _extract_latest_navs(usd_df)
-    lines: list[str] = []
-    lines.append("*Daily NAV Update*")
-    if eur_latest:
-        lines.append("\n*EUR funds*:")
-        for r in eur_latest:
-            lines.append(f"• {r['name']}: {r['nav']:.6f} EUR (as of {r['day_iso']})")
-    else:
-        lines.append("\n*EUR funds*: no data")
-    if usd_latest:
-        lines.append("\n*USD funds*:")
-        for r in usd_latest:
-            lines.append(f"• {r['name']}: {r['nav']:.6f} USD (as of {r['day_iso']})")
-    else:
-        lines.append("\n*USD funds*: no data")
-    return "\n".join(lines)
-
-
-def _post_to_slack(webhook_url: str, text: str) -> None:
-    """Post a simple text payload to a Slack Incoming Webhook."""
-    try:
-        payload = json.dumps({"text": text}).encode("utf-8")
-        req = Request(webhook_url, data=payload, headers={"Content-Type": "application/json", "User-Agent": "nav-fetcher/1.0"})
-        with urlopen(req):  # noqa: S310 - posting to configured webhook URL
-            pass
-    except Exception as exc:
-        sys.stderr.write(f"Failed to post Slack message: {exc}\n")
-
-
-def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build NAV datasets and optionally notify Slack")
-    parser.add_argument("--slack", action="store_true", help="Send Slack message with latest NAVs")
-    parser.add_argument(
-        "--slack-webhook",
-        default=os.environ.get("SLACK_WEBHOOK_URL"),
-        help="Slack Incoming Webhook URL (or set SLACK_WEBHOOK_URL env var)",
-    )
-    return parser.parse_args(argv)
-
-
-def main(argv: Optional[list[str]] = None) -> int:
-    args = parse_args(argv)
+def main() -> int:
     start_year = 2025
     start_date_obj = date(start_year, 1, 1)
 
@@ -675,15 +606,6 @@ def main(argv: Optional[list[str]] = None) -> int:
         group_currency="USD",
         start_dt=start_date_obj,
     )
-
-    # Optionally send Slack notification
-    if args.slack:
-        webhook = args.slack_webhook
-        if not webhook:
-            sys.stderr.write("--slack set but no webhook configured (use --slack-webhook or SLACK_WEBHOOK_URL)\n")
-        else:
-            text = _format_slack_text(eur_df, usd_df)
-            _post_to_slack(webhook, text)
 
     return 0
 
