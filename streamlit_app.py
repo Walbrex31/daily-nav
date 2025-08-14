@@ -33,7 +33,7 @@ def _mtime_str(path: Path) -> str | None:
 
 st.title("UCITS Money Market Funds – Performance Comparison")
 st.caption("Interactive Plotly charts rendered from CSV outputs.")
-st.caption("Source: Yahoo Finance and Spiko public API")
+st.caption("Source: Yahoo Finance, Spiko public API")
 
 eur_csv_path = ROOT / "nav_eur.csv"
 usd_csv_path = ROOT / "nav_usd.csv"
